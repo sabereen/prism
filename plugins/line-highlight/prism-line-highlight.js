@@ -17,28 +17,6 @@
 		func();
 	}
 
-	// Some browsers round the line-height, others don't.
-	// We need to test for it to position the elements properly.
-	var isLineHeightRounded = (function () {
-		var res;
-		return function () {
-			if (typeof res === 'undefined') {
-				var d = document.createElement('div');
-				d.style.fontSize = '13px';
-				d.style.lineHeight = '1.5';
-				d.style.padding = 0;
-				d.style.border = 0;
-				d.innerHTML = '&nbsp;<br />&nbsp;';
-				document.body.appendChild(d);
-				// Browsers that round the line-height should have offsetHeight === 38
-				// The others should have 39.
-				res = d.offsetHeight === 38;
-				document.body.removeChild(d);
-			}
-			return res;
-		}
-	}());
-
 	/**
 	 * Highlights the lines of the given pre.
 	 *
@@ -56,8 +34,7 @@
 		var ranges = lines.replace(/\s+/g, '').split(',');
 		var offset = +pre.getAttribute('data-line-offset') || 0;
 
-		var parseMethod = isLineHeightRounded() ? parseInt : parseFloat;
-		var lineHeight = parseMethod(getComputedStyle(pre).lineHeight);
+		var lineHeight = 1.5; //1.5em
 		var hasLineNumbers = hasClass(pre, 'line-numbers');
 		var parentElement = hasLineNumbers ? pre : pre.querySelector('code') || pre;
 		var mutateActions = /** @type {(() => void)[]} */ ([]);
@@ -76,37 +53,17 @@
 				line.className = (classes || '') + ' line-highlight';
 			});
 
-			// if the line-numbers plugin is enabled, then there is no reason for this plugin to display the line numbers
-			if (hasLineNumbers && Prism.plugins.lineNumbers) {
-				var startNode = Prism.plugins.lineNumbers.getLine(pre, start);
-				var endNode = Prism.plugins.lineNumbers.getLine(pre, end);
+			mutateActions.push(function () {
+				line.setAttribute('data-start', start);
 
-				if (startNode) {
-					var top = startNode.offsetTop + 'px';
-					mutateActions.push(function () {
-						line.style.top = top;
-					});
+				if (end > start) {
+					line.setAttribute('data-end', end);
 				}
 
-				if (endNode) {
-					var height = (endNode.offsetTop - startNode.offsetTop) + endNode.offsetHeight + 'px';
-					mutateActions.push(function () {
-						line.style.height = height;
-					});
-				}
-			} else {
-				mutateActions.push(function () {
-					line.setAttribute('data-start', start);
+				line.style.top = (start - offset - 1) * lineHeight + 'em';
 
-					if (end > start) {
-						line.setAttribute('data-end', end);
-					}
-
-					line.style.top = (start - offset - 1) * lineHeight + 'px';
-
-					line.textContent = new Array(end - start + 2).join(' \n');
-				});
-			}
+				line.textContent = new Array(end - start + 2).join(' \n');
+			});
 
 			mutateActions.push(function () {
 				// allow this to play nicely with the line-numbers plugin
